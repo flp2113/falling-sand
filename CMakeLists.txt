@@ -14,7 +14,13 @@ include_directories(${SDL3_INCLUDE_DIRS})
 link_directories(${SDL3_LIBRARY_DIRS})
 
 # Create your executable
-add_executable(falling_sand WIN32 main.c)
+add_executable(falling_sand WIN32 src/main.c src/display/display.c)
 
 # Link SDL3 libraries
 target_link_libraries(falling_sand PRIVATE ${SDL3_LIBRARIES})
+
+# Tests
+enable_testing()
+add_executable(display_tests tests/test_display.c)
+target_include_directories(display_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/display)
+add_test(NAME display_tests COMMAND display_tests)
