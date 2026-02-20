@@ -12,7 +12,7 @@
 #define SDL_QuitSubSystem fake_SDL_QuitSubSystem
 #define SDL_Log fake_SDL_Log
 #define SDL_GetError fake_SDL_GetError
-
+#include "../src/display/display.h"
 #include "../src/display/display.c"
 
 #undef SDL_InitSubSystem
@@ -142,82 +142,89 @@ const char *fake_SDL_GetError(void) { return "fake sdl error"; }
 
 static void test_initialize_null_display(void) {
     reset_fake_sdl();
-    assert(!display_initialize(NULL, "Title", 640, 480, 0, SDL_INIT_VIDEO,
-                               (SDL_RendererLogicalPresentation)0));
+    DisplayConfig config = {
+        .title = "Title",
+        .width = 640,
+        .height = 480,
+        .window_flags = 0,
+        .init_flags = SDL_INIT_VIDEO,
+        .presentation = (SDL_RendererLogicalPresentation)0
+    };
+    assert(!display_initialize(NULL, config));
     assert(fake_sdl.init_calls == 0);
     assert(fake_sdl.create_calls == 0);
     assert(fake_sdl.logical_calls == 0);
     assert(fake_sdl.quit_calls == 0);
-    assert(fake_sdl.log_calls == 0);
+    assert(fake_sdl.log_calls == 1);
 }
 
 static void test_initialize_init_failure(void) {
     Display display = {0};
-    const char *title = "Title";
-    const int width = 640;
-    const int height = 480;
-    const SDL_WindowFlags window_flags = 0;
-    const SDL_InitFlags init_flags = SDL_INIT_VIDEO;
-    const SDL_RendererLogicalPresentation mode =
-        (SDL_RendererLogicalPresentation)0;
+    DisplayConfig config = {
+        .title = "Title",
+        .width = 640,
+        .height = 480,
+        .window_flags = 0,
+        .init_flags = SDL_INIT_VIDEO,
+        .presentation = (SDL_RendererLogicalPresentation)0
+    };
 
     reset_fake_sdl();
     fake_sdl.init_return = false;
 
-    assert(!display_initialize(&display, title, width, height, window_flags,
-                               init_flags, mode));
+    assert(!display_initialize(&display, config));
     assert(fake_sdl.init_calls == 1);
     assert(fake_sdl.create_calls == 0);
     assert(fake_sdl.logical_calls == 0);
     assert(fake_sdl.quit_calls == 0);
     assert(fake_sdl.log_calls == 1);
-    assert(fake_sdl.last_init_flags == init_flags);
+    assert(fake_sdl.last_init_flags == config.init_flags);
     assert(display.window == NULL);
     assert(display.renderer == NULL);
-    assert(display.init_flags == init_flags);
+    assert(display.init_flags == config.init_flags);
 }
 
 static void test_initialize_create_failure(void) {
     Display display = {0};
-    const char *title = "Title";
-    const int width = 640;
-    const int height = 480;
-    const SDL_WindowFlags window_flags = SDL_WINDOW_FULLSCREEN;
-    const SDL_InitFlags init_flags = SDL_INIT_VIDEO;
-    const SDL_RendererLogicalPresentation mode =
-        (SDL_RendererLogicalPresentation)1;
+    DisplayConfig config = {
+        .title = "Title",
+        .width = 640,
+        .height = 480,
+        .window_flags = SDL_WINDOW_FULLSCREEN,
+        .init_flags = SDL_INIT_VIDEO,
+        .presentation = (SDL_RendererLogicalPresentation)1
+    };
 
     reset_fake_sdl();
     fake_sdl.create_return = false;
 
-    assert(!display_initialize(&display, title, width, height, window_flags,
-                               init_flags, mode));
+    assert(!display_initialize(&display, config));
     assert(fake_sdl.init_calls == 1);
     assert(fake_sdl.create_calls == 1);
     assert(fake_sdl.logical_calls == 0);
     assert(fake_sdl.quit_calls == 1);
     assert(fake_sdl.log_calls == 1);
     assert(fake_sdl.last_quit_flags == SDL_INIT_VIDEO);
-    assert_common_args(title, width, height, window_flags, init_flags);
+    assert_common_args(config.title, config.width, config.height, config.window_flags, config.init_flags);
     assert(display.window == NULL);
     assert(display.renderer == NULL);
 }
 
 static void test_initialize_logical_failure(void) {
     Display display = {0};
-    const char *title = "Title";
-    const int width = 640;
-    const int height = 480;
-    const SDL_WindowFlags window_flags = SDL_WINDOW_RESIZABLE;
-    const SDL_InitFlags init_flags = SDL_INIT_VIDEO;
-    const SDL_RendererLogicalPresentation mode =
-        (SDL_RendererLogicalPresentation)2;
+    DisplayConfig config = {
+        .title = "Title",
+        .width = 640,
+        .height = 480,
+        .window_flags = SDL_WINDOW_RESIZABLE,
+        .init_flags = SDL_INIT_VIDEO,
+        .presentation = (SDL_RendererLogicalPresentation)2
+    };
 
     reset_fake_sdl();
     fake_sdl.logical_return = false;
 
-    assert(!display_initialize(&display, title, width, height, window_flags,
-                               init_flags, mode));
+    assert(!display_initialize(&display, config));
     assert(fake_sdl.init_calls == 1);
     assert(fake_sdl.create_calls == 1);
     assert(fake_sdl.logical_calls == 1);
@@ -225,26 +232,26 @@ static void test_initialize_logical_failure(void) {
     assert(fake_sdl.destroy_window_calls == 1);
     assert(fake_sdl.quit_calls == 1);
     assert(fake_sdl.log_calls == 1);
-    assert_common_args(title, width, height, window_flags, init_flags);
-    assert_presentation(mode);
+    assert_common_args(config.title, config.width, config.height, config.window_flags, config.init_flags);
+    assert_presentation(config.presentation);
     assert(display.window == NULL);
     assert(display.renderer == NULL);
 }
 
 static void test_initialize_success(void) {
     Display display = {0};
-    const char *title = "Title";
-    const int width = 640;
-    const int height = 480;
-    const SDL_WindowFlags window_flags = SDL_WINDOW_MOUSE_GRABBED;
-    const SDL_InitFlags init_flags = SDL_INIT_VIDEO;
-    const SDL_RendererLogicalPresentation mode =
-        (SDL_RendererLogicalPresentation)3;
+    DisplayConfig config = {
+        .title = "Title",
+        .width = 640,
+        .height = 480,
+        .window_flags = SDL_WINDOW_MOUSE_GRABBED,
+        .init_flags = SDL_INIT_VIDEO,
+        .presentation = (SDL_RendererLogicalPresentation)3
+    };
 
     reset_fake_sdl();
 
-    assert(display_initialize(&display, title, width, height, window_flags,
-                              init_flags, mode));
+    assert(display_initialize(&display, config));
     assert(fake_sdl.init_calls == 1);
     assert(fake_sdl.create_calls == 1);
     assert(fake_sdl.logical_calls == 1);
@@ -252,8 +259,8 @@ static void test_initialize_success(void) {
     assert(fake_sdl.destroy_window_calls == 0);
     assert(fake_sdl.quit_calls == 0);
     assert(fake_sdl.log_calls == 0);
-    assert_common_args(title, width, height, window_flags, init_flags);
-    assert_presentation(mode);
+    assert_common_args(config.title, config.width, config.height, config.window_flags, config.init_flags);
+    assert_presentation(config.presentation);
     assert(display.window == fake_sdl.created_window);
     assert(display.renderer == fake_sdl.created_renderer);
 }
