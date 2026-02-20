@@ -1,0 +1,12 @@
+# Build files
+/build/
+/CMakeFiles/
+/CMakeCache.txt
+Makefile
+*.o
+*.exe
+*.out
+
+# OS files
+.DS_Store
+Thumbs.db
