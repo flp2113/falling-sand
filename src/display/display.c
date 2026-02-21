@@ -2,7 +2,7 @@
 
 bool display_initialize(Display *display, DisplayConfig config) {
     if (!display) {
-        SDL_Log("Couldn't find Display.");
+        SDL_Log("Couldn't find Display at initialization.");
         return false;
     }
 
@@ -45,6 +45,7 @@ bool display_initialize(Display *display, DisplayConfig config) {
 
 void display_cleanup(Display *display) {
     if (!display) {
+        SDL_Log("Couldn't find Display at cleanup.");
         return;
     }
 
