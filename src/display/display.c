@@ -1,17 +1,22 @@
 #include "display.h"
 
-bool display_initialize(Display *display, DisplayConfig config) {
+bool display_initialize(Display *display, const DisplayConfig *config) {
     if (!display) {
-        SDL_Log("Couldn't find Display at initialization.");
+        SDL_Log("Couldn't find Display at Display initialization.");
         return false;
     }
 
-    const char *title = config.title;
-    int width = config.width;
-    int height = config.height;
-    SDL_WindowFlags window_flags = config.window_flags;
-    SDL_InitFlags init_flags = config.init_flags;
-    SDL_RendererLogicalPresentation presentation = config.presentation;
+    if (!config) {
+        SDL_Log("Couldn't find DisplayConfig at Display initialization.");
+        return false;
+    }
+
+    const char *title = config->title;
+    int width = config->width;
+    int height = config->height;
+    SDL_WindowFlags window_flags = config->window_flags;
+    SDL_InitFlags init_flags = config->init_flags;
+    SDL_RendererLogicalPresentation presentation = config->presentation;
 
     display->window = NULL;
     display->renderer = NULL;
@@ -32,6 +37,16 @@ bool display_initialize(Display *display, DisplayConfig config) {
     if (!SDL_SetRenderLogicalPresentation(display->renderer, width, height,
                                           presentation)) {
         SDL_Log("Couldn't set logical presentation: %s", SDL_GetError());
+        SDL_DestroyRenderer(display->renderer);
+        SDL_DestroyWindow(display->window);
+        SDL_QuitSubSystem(init_flags);
+        display->renderer = NULL;
+        display->window = NULL;
+        return false;
+    }
+
+    if(!SDL_SetRenderVSync(display->renderer, 1)) {
+        SDL_Log("Couldn't set Vsync: %s", SDL_GetError());
         SDL_DestroyRenderer(display->renderer);
         SDL_DestroyWindow(display->window);
         SDL_QuitSubSystem(init_flags);
