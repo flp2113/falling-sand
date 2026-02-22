@@ -1,4 +1,3 @@
-#include <assert.h>
 #include "particle.h"
 #include "../config.h"
 #include "../grid/grid.h"
@@ -71,16 +70,6 @@ SDL_Color particle_get_random_color_by_type(ParticleType type) {
 
 static void particle_swap_in_grid(Grid *grid, Coordinates source,
                                    Coordinates destination) {
-    if (!grid_is_in_bounds(source)) {
-        SDL_Log("Source is out-of-bounds at swapping particles.");
-        return;
-    }
-
-    if (!grid_is_in_bounds(destination)) {
-        SDL_Log("Destination is out-of-bounds at swapping particles.");
-        return;
-    }
-
     Particle temporary_particle = grid->particles[source.y][source.x];
     grid->particles[source.y][source.x] = grid->particles[destination.y][destination.x];
     grid->particles[destination.y][destination.x] = temporary_particle;
@@ -126,23 +115,14 @@ static void particle_update_sand(Grid *grid, Coordinates coordinates) {
     }
 }
 
-void particle_render(Display *display, const Particle *particle, Coordinates coordinates) {
-    SDL_FRect rect = {
-        .x = (float)(coordinates.x * PARTICLE_SIZE),
-        .y = (float)(coordinates.y * PARTICLE_SIZE),
-        .w = (float)(PARTICLE_SIZE),
-        .h = (float)(PARTICLE_SIZE)
-    };
-
-    SDL_SetRenderDrawColor(display->renderer, particle->color.r,
-                           particle->color.g, particle->color.b,
-                           particle->color.a);
-    SDL_RenderFillRect(display->renderer, &rect);
-}
-
 void particle_update_in_grid(Grid *grid, Coordinates coordinates) {
     if (!grid) {
         SDL_Log("Couldn't find grid in particle_update_in_grid.");
+        return;
+    }
+
+    if (!grid_is_in_bounds(coordinates)) {
+        SDL_Log("Not proper grid X/Y coordinate at update particle in grid.");
         return;
     }
 

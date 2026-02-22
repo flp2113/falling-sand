@@ -2,6 +2,7 @@
 #define FALLING_SAND_PARTICLE_H
 
 #include <SDL3/SDL.h>
+#include <stdbool.h>
 #include "../types.h"
 
 typedef struct grid Grid;
