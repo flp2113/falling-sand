@@ -1,7 +1,7 @@
 #ifndef FALLING_SAND_CONFIG_H
 #define FALLING_SAND_CONFIG_H
 
-#include "particle/particle.h"
+#include <SDL3/SDL.h>
 
 /* DISPLAY */
 #define DISPLAY_TITLE "Falling Sand"
