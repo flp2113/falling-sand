@@ -7,14 +7,21 @@
 #include "display/display.h"
 #include "grid/grid.h"
 
-static Display display;
-static Grid grid;
-static bool left_mouse_pressed = false;
-static bool right_mouse_pressed = false;
+typedef struct app_state {
+    Display display;
+    Grid grid;
+    bool left_mouse_pressed;
+    bool right_mouse_pressed;
+} AppState;
 
-/* This function runs once at startup. */
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     SDL_srand((Uint64)time(NULL));
+
+    AppState *state = SDL_calloc(1, sizeof(AppState));
+    if (!state) {
+        SDL_Log("Couldn't allocate AppState.");
+        return SDL_APP_FAILURE;
+    }
 
     DisplayConfig config = {
         .title = DISPLAY_TITLE,
@@ -25,21 +32,26 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
         .presentation = DISPLAY_LOGICAL_PRESENTATION,
     };
 
-    if (!display_initialize(&display, &config)) {
+    if (!display_initialize(&state->display, &config)) {
         SDL_Log("Couldn't initialize Display.");
+        SDL_free(state);
         return SDL_APP_FAILURE;
     }
 
-    if (!grid_initialize(&grid)) {
+    if (!grid_initialize(&state->grid)) {
         SDL_Log("Couldn't initialize Grid.");
+        display_cleanup(&state->display);
+        SDL_free(state);
         return SDL_APP_FAILURE;
     }
 
+    *appstate = state;
     return SDL_APP_CONTINUE;
 }
 
-/* This function runs when a new event (mouse input, keypresses, etc) occurs. */
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
+    AppState *state = appstate;
+
     if (event->type == SDL_EVENT_QUIT) {
         return SDL_APP_SUCCESS;
     }
@@ -52,58 +64,66 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 
     if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
         if (event->button.button == SDL_BUTTON_LEFT) {
-            left_mouse_pressed = true;
+            state->left_mouse_pressed = true;
         } else if (event->button.button == SDL_BUTTON_RIGHT) {
-            right_mouse_pressed = true;
+            state->right_mouse_pressed = true;
         }
     }
 
     if (event->type == SDL_EVENT_MOUSE_BUTTON_UP) {
         if (event->button.button == SDL_BUTTON_LEFT) {
-            left_mouse_pressed = false;
+            state->left_mouse_pressed = false;
         } else if (event->button.button == SDL_BUTTON_RIGHT) {
-            right_mouse_pressed = false;
+            state->right_mouse_pressed = false;
         }
     }
 
     return SDL_APP_CONTINUE;
 }
 
-/* This function runs once per frame, and is the heart of the program. */
 SDL_AppResult SDL_AppIterate(void *appstate) {
-    SDL_SetRenderDrawColor(display.renderer, 0, 0, 0, SDL_ALPHA_OPAQUE); 
-    SDL_RenderClear(display.renderer);
+    AppState *state = (AppState *)appstate;
     
-    // Handle mouse input for placing particles
+    if (!state) {
+        return SDL_APP_FAILURE;
+    }
+
+    if (!state->display.renderer) {
+        return SDL_APP_FAILURE;
+    }
+
+    SDL_SetRenderDrawColor(state->display.renderer, 0, 0, 0, SDL_ALPHA_OPAQUE); 
+    SDL_RenderClear(state->display.renderer);
+    
     float mouse_x, mouse_y;
     SDL_GetMouseState(&mouse_x, &mouse_y);
     
-    // Convert screen coordinates to grid coordinates
-    Coordinates grid_pos = {
+    Coordinates coordinates = {
         .x = (int)(mouse_x / PARTICLE_SIZE),
         .y = (int)(mouse_y / PARTICLE_SIZE)
     };
     
-    // Place sand if left mouse button is held
-    if (left_mouse_pressed && grid_is_in_bounds(grid_pos)) {
-        grid_place_particle(&grid, grid_pos, SAND);
+    if (state->left_mouse_pressed && grid_is_in_bounds(coordinates)) {
+        grid_place_particle(&state->grid, coordinates, SAND);
     }
     
-    // Place rock if right mouse button is held
-    if (right_mouse_pressed && grid_is_in_bounds(grid_pos)) {
-        grid_place_particle(&grid, grid_pos, ROCK);
+    if (state->right_mouse_pressed && grid_is_in_bounds(coordinates)) {
+        grid_place_particle(&state->grid, coordinates, ROCK);
     }
     
-    grid_update(&grid);
-    grid_render(&grid, &display);
+    grid_update(&state->grid);
+    grid_render(&state->grid, &state->display);
     
-    SDL_RenderPresent(display.renderer);
+    SDL_RenderPresent(state->display.renderer);
 
     return SDL_APP_CONTINUE;
 }
 
-/* This function runs once at shutdown. */
 void SDL_AppQuit(void *appstate, SDL_AppResult result) {
-    grid_cleanup(&grid);
-    display_cleanup(&display);
+    AppState *state = appstate;
+    if (state) {
+        grid_cleanup(&state->grid);
+        display_cleanup(&state->display);
+        SDL_free(state);
+    }
 }
