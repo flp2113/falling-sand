@@ -1,7 +1,7 @@
 #ifndef FALLING_SAND_GRID_H
 #define FALLING_SAND_GRID_H
 
-#include <SDL3/SDL.h>
+#include <stdbool.h>
 #include "../types.h"
 #include "../config.h"
 #include "../display/display.h"
@@ -9,6 +9,7 @@
 
 typedef struct grid {
     Particle particles[GRID_HEIGHT][GRID_WIDTH];
+    bool update_left_to_right;
 } Grid;
 
 bool grid_clear(Grid *grid);

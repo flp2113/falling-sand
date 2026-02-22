@@ -2,7 +2,14 @@
 
 #include "grid.h"
 
-bool grid_initialize(Grid *grid) { return grid_clear(grid); }
+bool grid_initialize(Grid *grid) { 
+    if (!grid_clear(grid)) {
+        return false;
+    }
+    
+    grid->update_left_to_right = true;
+    return true;
+}
 
 bool grid_cleanup(Grid* grid) { return grid_clear(grid); }
 
@@ -22,15 +29,13 @@ bool grid_clear(Grid *grid) {
 }
 
 void grid_update(Grid *grid) {
-    static bool left_to_right = true;
-
     if (!grid) {
         SDL_Log("Couldn't find Grid at updating Grid.");
         return;
     }
 
     for (int y = GRID_HEIGHT - 1; y >= 0; y--) {
-        if (left_to_right) {
+        if (grid->update_left_to_right) {
             for (int x = 0; x < GRID_WIDTH; x++) {
                 particle_update_in_grid(grid, (Coordinates){x, y});
             }
@@ -41,7 +46,7 @@ void grid_update(Grid *grid) {
         }
     }
 
-    left_to_right = !left_to_right;
+    grid->update_left_to_right = !grid->update_left_to_right;
 }
 
 void grid_render(Grid *grid, Display *display) {
@@ -60,13 +65,32 @@ void grid_render(Grid *grid, Display *display) {
         return;
     }
 
+    if (!display->texture) {
+        SDL_Log("Couldn't find Texture at rendering Grid.");
+        return;
+    }
+
+    void *pixels;
+    int pitch;
+    if (!SDL_LockTexture(display->texture, NULL, &pixels, &pitch)) {
+        SDL_Log("Couldn't lock texture: %s", SDL_GetError());
+        return;
+    }
+
     for (int y = 0; y < GRID_HEIGHT; y++) {
+        Uint8 *row = (Uint8 *)pixels + y * pitch;
         for (int x = 0; x < GRID_WIDTH; x++) {
-            if (!particle_is_empty(&grid->particles[y][x])) {
-                particle_render(display, &grid->particles[y][x], (Coordinates){x, y});
-            }
+            SDL_Color color = grid->particles[y][x].color;
+            Uint8 *pixel = row + x * 4;
+            pixel[0] = color.r;
+            pixel[1] = color.g;
+            pixel[2] = color.b;
+            pixel[3] = color.a;
         }
     }
+
+    SDL_UnlockTexture(display->texture);
+    SDL_RenderTexture(display->renderer, display->texture, NULL, NULL);
 }
 
 bool grid_set_particle(Grid *grid, Coordinates coordinates,
