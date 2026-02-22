@@ -15,6 +15,7 @@ typedef struct display_config {
 typedef struct display {
     SDL_Window *window;
     SDL_Renderer *renderer;
+    SDL_Texture *texture;
     SDL_InitFlags init_flags;
 } Display;
 
