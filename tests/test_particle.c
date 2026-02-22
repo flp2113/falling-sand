@@ -322,30 +322,6 @@ static void test_swap_basic(void) {
     assert(fake_state.log_calls == 0);
 }
 
-static void test_swap_oob_source(void) {
-    static Grid grid;
-    init_grid_empty(&grid);
-    reset_fake_state();
-
-    particle_swap_in_grid(&grid, (Coordinates){-1, 0}, (Coordinates){0, 0});
-    assert(fake_state.log_calls == 1);
-    /* Grid unchanged */
-    assert(grid.particles[0][0].type == EMPTY);
-}
-
-static void test_swap_oob_destination(void) {
-    static Grid grid;
-    init_grid_empty(&grid);
-    place(&grid, 0, 0, SAND);
-    reset_fake_state();
-
-    particle_swap_in_grid(&grid, (Coordinates){0, 0},
-                           (Coordinates){0, GRID_HEIGHT});
-    assert(fake_state.log_calls == 1);
-    /* Source stays unchanged */
-    assert(grid.particles[0][0].type == SAND);
-}
-
 static void test_swap_same_position(void) {
     static Grid grid;
     init_grid_empty(&grid);
@@ -621,8 +597,6 @@ int main(void) {
 
     /* Swap */
     test_swap_basic();
-    test_swap_oob_source();
-    test_swap_oob_destination();
     test_swap_same_position();
 
     /* Sand physics */

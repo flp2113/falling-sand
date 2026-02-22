@@ -7,8 +7,10 @@
 /* ── Mock redirections ───────────────────────────────────────────────── */
 
 #define SDL_Log                            fake_SDL_Log
-#define SDL_SetRenderDrawColor             fake_SDL_SetRenderDrawColor
-#define SDL_RenderFillRect                 fake_SDL_RenderFillRect
+#define SDL_LockTexture                    fake_SDL_LockTexture
+#define SDL_UnlockTexture                  fake_SDL_UnlockTexture
+#define SDL_RenderTexture                  fake_SDL_RenderTexture
+#define SDL_GetError                       fake_SDL_GetError
 #define particle_update_in_grid            fake_particle_update_in_grid
 #define particle_render                    fake_particle_render
 #define particle_is_empty                  fake_particle_is_empty
@@ -18,8 +20,10 @@
 #include "../src/grid/grid.c"
 
 #undef SDL_Log
-#undef SDL_SetRenderDrawColor
-#undef SDL_RenderFillRect
+#undef SDL_LockTexture
+#undef SDL_UnlockTexture
+#undef SDL_RenderTexture
+#undef SDL_GetError
 #undef particle_update_in_grid
 #undef particle_render
 #undef particle_is_empty
@@ -33,8 +37,9 @@ typedef struct FakeState {
     int render_particle_calls;
     int is_empty_calls;
     int random_color_calls;
-    int set_color_calls;
-    int fill_rect_calls;
+    int lock_calls;
+    int unlock_calls;
+    int render_texture_calls;
 
     /* Last particle_is_empty result override */
     bool is_empty_return;
@@ -42,6 +47,12 @@ typedef struct FakeState {
     /* Last particle_get_random_color_by_type capture */
     ParticleType last_random_color_type;
     SDL_Color    random_color_return;
+
+    /* Texture lock behavior */
+    bool lock_return;
+    SDL_Texture *last_locked_texture;
+    SDL_Texture *last_rendered_texture;
+    SDL_Renderer *last_rendered_renderer;
 } FakeState;
 
 static FakeState fake_state;
@@ -50,7 +61,10 @@ static void reset_fake_state(void) {
     memset(&fake_state, 0, sizeof(fake_state));
     fake_state.is_empty_return = true;
     fake_state.random_color_return = (SDL_Color){100, 100, 100, 255};
+    fake_state.lock_return = true;
 }
+
+static Uint8 fake_pixels[GRID_HEIGHT][GRID_WIDTH * 4];
 
 /* ── Fake implementations ────────────────────────────────────────────── */
 
@@ -62,16 +76,35 @@ void fake_SDL_Log(const char *fmt, ...) {
     fake_state.log_calls++;
 }
 
-bool fake_SDL_SetRenderDrawColor(SDL_Renderer *renderer, Uint8 r, Uint8 g,
-                                  Uint8 b, Uint8 a) {
-    (void)renderer; (void)r; (void)g; (void)b; (void)a;
-    fake_state.set_color_calls++;
+bool fake_SDL_LockTexture(SDL_Texture *texture, const SDL_Rect *rect,
+                          void **pixels, int *pitch) {
+    (void)rect;
+    fake_state.lock_calls++;
+    fake_state.last_locked_texture = texture;
+    if (!fake_state.lock_return) {
+        return false;
+    }
+    if (pixels) {
+        *pixels = fake_pixels;
+    }
+    if (pitch) {
+        *pitch = GRID_WIDTH * 4;
+    }
     return true;
 }
 
-bool fake_SDL_RenderFillRect(SDL_Renderer *renderer, const SDL_FRect *rect) {
-    (void)renderer; (void)rect;
-    fake_state.fill_rect_calls++;
+void fake_SDL_UnlockTexture(SDL_Texture *texture) {
+    (void)texture;
+    fake_state.unlock_calls++;
+}
+
+bool fake_SDL_RenderTexture(SDL_Renderer *renderer, SDL_Texture *texture,
+                            const SDL_FRect *srcrect, const SDL_FRect *dstrect) {
+    (void)srcrect;
+    (void)dstrect;
+    fake_state.render_texture_calls++;
+    fake_state.last_rendered_renderer = renderer;
+    fake_state.last_rendered_texture = texture;
     return true;
 }
 
@@ -98,6 +131,8 @@ SDL_Color fake_particle_get_random_color_by_type(ParticleType type) {
     return fake_state.random_color_return;
 }
 
+const char *fake_SDL_GetError(void) { return "fake sdl error"; }
+
 /* ── Helper ──────────────────────────────────────────────────────────── */
 
 static void fill_grid_with(Grid *grid, ParticleType type, SDL_Color color) {
@@ -106,6 +141,12 @@ static void fill_grid_with(Grid *grid, ParticleType type, SDL_Color color) {
             grid->particles[y][x] = (Particle){.type = type, .color = color};
         }
     }
+}
+
+static SDL_Color get_pixel(int x, int y) {
+    Uint8 *pixel = &fake_pixels[y][x * 4];
+    SDL_Color color = {pixel[0], pixel[1], pixel[2], pixel[3]};
+    return color;
 }
 
 /* ────────────────────────────────────────────────────────────────────── */
@@ -497,12 +538,12 @@ static void test_update_alternates_direction(void) {
 /* ────────────────────────────────────────────────────────────────────── */
 
 static void test_render_null_grid(void) {
-    Display display = {.renderer = (SDL_Renderer *)0x1};
+    Display display = {.renderer = (SDL_Renderer *)0x1, .texture = (SDL_Texture *)0x3};
     reset_fake_state();
 
     grid_render(NULL, &display);
     assert(fake_state.log_calls == 1);
-    assert(fake_state.render_particle_calls == 0);
+    assert(fake_state.render_texture_calls == 0);
 }
 
 static void test_render_null_display(void) {
@@ -512,40 +553,61 @@ static void test_render_null_display(void) {
 
     grid_render(&grid, NULL);
     assert(fake_state.log_calls == 1);
-    assert(fake_state.render_particle_calls == 0);
+    assert(fake_state.render_texture_calls == 0);
 }
 
 static void test_render_null_renderer(void) {
     static Grid grid;
     grid_initialize(&grid);
-    Display display = {0};
+    Display display = {.texture = (SDL_Texture *)0x3};
     reset_fake_state();
 
     grid_render(&grid, &display);
     assert(fake_state.log_calls == 1);
-    assert(fake_state.render_particle_calls == 0);
+    assert(fake_state.render_texture_calls == 0);
 }
 
-static void test_render_empty_grid(void) {
+static void test_render_null_texture(void) {
     static Grid grid;
     grid_initialize(&grid);
     Display display = {.renderer = (SDL_Renderer *)0x1};
     reset_fake_state();
 
     grid_render(&grid, &display);
-    assert(fake_state.render_particle_calls == 0);
+    assert(fake_state.log_calls == 1);
+    assert(fake_state.render_texture_calls == 0);
+}
+
+static void test_render_empty_grid(void) {
+    static Grid grid;
+    grid_initialize(&grid);
+    Display display = {.renderer = (SDL_Renderer *)0x1, .texture = (SDL_Texture *)0x3};
+    reset_fake_state();
+
+    grid_render(&grid, &display);
     assert(fake_state.log_calls == 0);
+    assert(fake_state.lock_calls == 1);
+    assert(fake_state.unlock_calls == 1);
+    assert(fake_state.render_texture_calls == 1);
+    assert(fake_state.last_locked_texture == display.texture);
+    assert(fake_state.last_rendered_texture == display.texture);
+    assert(fake_state.last_rendered_renderer == display.renderer);
+    assert(get_pixel(0, 0).r == COLOR_EMPTY.r);
 }
 
 static void test_render_single_particle(void) {
     static Grid grid;
     grid_initialize(&grid);
     grid.particles[0][0] = (Particle){.type = SAND, .color = COLOR_SAND};
-    Display display = {.renderer = (SDL_Renderer *)0x1};
+    Display display = {.renderer = (SDL_Renderer *)0x1, .texture = (SDL_Texture *)0x3};
     reset_fake_state();
 
     grid_render(&grid, &display);
-    assert(fake_state.render_particle_calls == 1);
+    assert(fake_state.render_texture_calls == 1);
+    assert(get_pixel(0, 0).r == COLOR_SAND.r);
+    assert(get_pixel(0, 0).g == COLOR_SAND.g);
+    assert(get_pixel(0, 0).b == COLOR_SAND.b);
+    assert(get_pixel(0, 0).a == COLOR_SAND.a);
 }
 
 static void test_render_multiple_particles(void) {
@@ -554,21 +616,26 @@ static void test_render_multiple_particles(void) {
     grid.particles[0][0]   = (Particle){.type = SAND, .color = COLOR_SAND};
     grid.particles[5][10]  = (Particle){.type = ROCK, .color = COLOR_ROCK};
     grid.particles[100][50] = (Particle){.type = SAND, .color = COLOR_SAND};
-    Display display = {.renderer = (SDL_Renderer *)0x1};
+    Display display = {.renderer = (SDL_Renderer *)0x1, .texture = (SDL_Texture *)0x3};
     reset_fake_state();
 
     grid_render(&grid, &display);
-    assert(fake_state.render_particle_calls == 3);
+    assert(fake_state.render_texture_calls == 1);
+    assert(get_pixel(0, 0).r == COLOR_SAND.r);
+    assert(get_pixel(10, 5).r == COLOR_ROCK.r);
+    assert(get_pixel(50, 100).r == COLOR_SAND.r);
 }
 
 static void test_render_full_grid(void) {
     static Grid grid;
     fill_grid_with(&grid, SAND, COLOR_SAND);
-    Display display = {.renderer = (SDL_Renderer *)0x1};
+    Display display = {.renderer = (SDL_Renderer *)0x1, .texture = (SDL_Texture *)0x3};
     reset_fake_state();
 
     grid_render(&grid, &display);
-    assert(fake_state.render_particle_calls == GRID_WIDTH * GRID_HEIGHT);
+    assert(fake_state.render_texture_calls == 1);
+    assert(fake_state.lock_calls == 1);
+    assert(fake_state.unlock_calls == 1);
 }
 
 /* ────────────────────────────────────────────────────────────────────── */
@@ -663,6 +730,7 @@ int main(void) {
     test_render_null_grid();
     test_render_null_display();
     test_render_null_renderer();
+    test_render_null_texture();
     test_render_empty_grid();
     test_render_single_particle();
     test_render_multiple_particles();
