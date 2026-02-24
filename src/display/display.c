@@ -33,8 +33,7 @@ bool display_initialize(Display *display, const DisplayConfig *config) {
     if (!SDL_SetTextureScaleMode(display->texture, SDL_SCALEMODE_NEAREST))
         goto cleanup;
 
-    if (!SDL_SetRenderLogicalPresentation(display->renderer, width, height,
-                                          presentation))
+    if (!SDL_SetRenderLogicalPresentation(display->renderer, width, height, presentation))
         goto cleanup;
 
     if (!SDL_SetRenderVSync(display->renderer, 1))
@@ -51,20 +50,15 @@ void display_cleanup(Display *display) {
     if (!display)
         return;
 
-    if (display->texture) {
+    if (display->texture)
         SDL_DestroyTexture(display->texture);
-        display->texture = NULL;
-    }
 
-    if (display->renderer) {
+    if (display->renderer)
         SDL_DestroyRenderer(display->renderer);
-        display->renderer = NULL;
-    }
 
-    if (display->window) {
+    if (display->window)
         SDL_DestroyWindow(display->window);
-        display->window = NULL;
-    }
 
     SDL_QuitSubSystem(display->init_flags);
+    *display = (Display){0};
 }
