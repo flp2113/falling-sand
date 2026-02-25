@@ -3,25 +3,20 @@
 #include "grid.h"
 
 bool grid_initialize(Grid *grid) { 
-    if (!grid_clear(grid)) {
+    if (!grid_cleanup(grid)) 
         return false;
-    }
     
     grid->update_left_to_right = true;
     return true;
 }
 
-bool grid_cleanup(Grid* grid) { return grid_clear(grid); }
-
-bool grid_clear(Grid *grid) {
-    if (!grid) {
-        SDL_Log("Couldn't find grid at Grid cleaning.");
+bool grid_cleanup(Grid *grid) {
+    if (!grid) 
         return false;
-    }
 
     for (int y = 0; y < GRID_HEIGHT; y++) {
         for (int x = 0; x < GRID_WIDTH; x++) {
-            grid->particles[y][x] = (Particle){.type = EMPTY, .color = COLOR_EMPTY};
+            grid->particles[y][x] = (Particle){EMPTY, COLOR_EMPTY};
         }
     }
 
@@ -29,10 +24,8 @@ bool grid_clear(Grid *grid) {
 }
 
 void grid_update(Grid *grid) {
-    if (!grid) {
-        SDL_Log("Couldn't find Grid at updating Grid.");
+    if (!grid) 
         return;
-    }
 
     for (int y = GRID_HEIGHT - 1; y >= 0; y--) {
         if (grid->update_left_to_right) {
@@ -50,28 +43,11 @@ void grid_update(Grid *grid) {
 }
 
 void grid_render(Grid *grid, Display *display) {
-    if (!grid) {
-        SDL_Log("Couldn't find Grid at rendering Grid.");
+    if (!grid || !display || !display->renderer || !display->texture) 
         return;
-    }
 
-    if (!display) {
-        SDL_Log("Couldn't find Display at rendering Grid.");
-        return;
-    }
-
-    if (!display->renderer) {
-        SDL_Log("Couldn't find Renderer at rendering Grid.");
-        return;
-    }
-
-    if (!display->texture) {
-        SDL_Log("Couldn't find Texture at rendering Grid.");
-        return;
-    }
-
-    void *pixels;
     int pitch;
+    void *pixels;
     if (!SDL_LockTexture(display->texture, NULL, &pixels, &pitch)) {
         SDL_Log("Couldn't lock texture: %s", SDL_GetError());
         return;
@@ -93,71 +69,36 @@ void grid_render(Grid *grid, Display *display) {
     SDL_RenderTexture(display->renderer, display->texture, NULL, NULL);
 }
 
-bool grid_set_particle(Grid *grid, Coordinates coordinates,
-                       const Particle *particle) {
-    if (!grid) {
-        SDL_Log("Couldn't find grid at setting particle.");
+bool grid_set_particle(Grid *grid, Coordinates coordinates, const Particle *particle) {
+    if (!grid || !grid_is_in_bounds(coordinates)) 
         return false;
-    }
-
-    if (!grid_is_in_bounds(coordinates)) {
-        SDL_Log("Not proper grid X/Y coordinates at setting particle.");
-        return false;
-    }
-
-    if (!particle) {
-        SDL_Log("Couldn't find particle at setting particle.");
-        return false;
-    }
 
     grid->particles[coordinates.y][coordinates.x] = *particle;
-
     return true;
 }
 
-bool grid_place_particle(Grid *grid, Coordinates coordinates,
-                         ParticleType type) {
-    if (!grid) {
-        SDL_Log("Couldn't find grid at placing particle.");
+bool grid_place_particle(Grid *grid, Coordinates coordinates, ParticleType type) {
+    if (!grid || !grid_is_in_bounds(coordinates)) 
         return false;
-    }
 
-    if (!grid_is_in_bounds(coordinates)) {
-        SDL_Log("Not proper grid X/Y position at placing particle.");
-        return false;
-    }
-
-    Particle particle = {.type = type,
-                         .color = particle_get_random_color_by_type(type)};
-
+    Particle particle = {type, particle_get_random_color_by_type(type)};
     return grid_set_particle(grid, coordinates, &particle);
 }
 
 const Particle *grid_get_particle(Grid *grid, Coordinates coordinates) {
-    if (!grid) {
-        SDL_Log("Couldn't find grid at getting particle.");
+    if (!grid || !grid_is_in_bounds(coordinates)) 
         return NULL;
-    }
-
-    if (!grid_is_in_bounds(coordinates)) {
-        SDL_Log("Not proper grid X/Y position at getting particle.");
-        return NULL;
-    }
-
+        
     return &grid->particles[coordinates.y][coordinates.x];
 }
 
 bool grid_is_empty(Grid *grid) {
-    if (!grid) {
-        SDL_Log("Couldn't find grid at checking if it's empty.");
+    if (!grid) 
         return false;
-    }
 
     for (int y = 0; y < GRID_HEIGHT; y++) {
         for (int x = 0; x < GRID_WIDTH; x++) {
-            if (grid->particles[y][x].type != EMPTY) {
-                return false;
-            }
+            if (grid->particles[y][x].type != EMPTY) return false;
         }
     }
 
@@ -165,19 +106,12 @@ bool grid_is_empty(Grid *grid) {
 }
 
 bool grid_is_particle_empty(Grid *grid, Coordinates coordinates) {
-    if (!grid) {
-        SDL_Log("Couldn't find Grid at checking if particle is empty in Grid.");
+    if (!grid || !grid_is_in_bounds(coordinates)) 
         return false;
-    } 
 
-    if (!grid_is_in_bounds(coordinates)) {
-        return false;
-    }
-
-    return grid->particles[coordinates.y][coordinates.x].type == EMPTY;
+    return particle_is_empty(&grid->particles[coordinates.y][coordinates.x]);
 }
 
 bool grid_is_in_bounds(Coordinates coordinates) {
-    return (coordinates.x >= 0 && coordinates.x < GRID_WIDTH &&
-            coordinates.y >= 0 && coordinates.y < GRID_HEIGHT);
+    return (coordinates.x >= 0 && coordinates.x < GRID_WIDTH && coordinates.y >= 0 && coordinates.y < GRID_HEIGHT);
 }

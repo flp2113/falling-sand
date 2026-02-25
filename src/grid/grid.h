@@ -12,7 +12,6 @@ typedef struct grid {
     bool update_left_to_right;
 } Grid;
 
-bool grid_clear(Grid *grid);
 bool grid_cleanup(Grid* grid);
 bool grid_initialize(Grid *grid);
 
