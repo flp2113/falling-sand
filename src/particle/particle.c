@@ -3,24 +3,19 @@
 #include "../grid/grid.h"
 
 static Uint8 clamp_color_component(int value) {
-    if (value < 0) {
+    if (value < 0) 
         return 0;
-    }
 
-    if (value > 255) {
+    if (value > 255)
         return 255;
-    }
 
     return (Uint8)value;
 }
 
 SDL_Color particle_get_random_sand_color(void) {
-    int offset_r =
-        (SDL_rand(SAND_COLOR_VARIATION * 2 + 1)) - SAND_COLOR_VARIATION;
-    int offset_g =
-        (SDL_rand(SAND_COLOR_VARIATION * 2 + 1)) - SAND_COLOR_VARIATION;
-    int offset_b =
-        (SDL_rand(SAND_COLOR_VARIATION * 2 + 1)) - SAND_COLOR_VARIATION;
+    int offset_r = (SDL_rand(SAND_COLOR_VARIATION * 2 + 1)) - SAND_COLOR_VARIATION;
+    int offset_g = (SDL_rand(SAND_COLOR_VARIATION * 2 + 1)) - SAND_COLOR_VARIATION;
+    int offset_b = (SDL_rand(SAND_COLOR_VARIATION * 2 + 1)) - SAND_COLOR_VARIATION;
 
     SDL_Color color = {.r = clamp_color_component(SAND_COLOR_BASE_R + offset_r),
                        .g = clamp_color_component(SAND_COLOR_BASE_G + offset_g),
@@ -31,12 +26,9 @@ SDL_Color particle_get_random_sand_color(void) {
 }
 
 SDL_Color particle_get_random_rock_color(void) {
-    int offset_r =
-        (SDL_rand(ROCK_COLOR_VARIATION * 2 + 1)) - ROCK_COLOR_VARIATION;
-    int offset_g =
-        (SDL_rand(ROCK_COLOR_VARIATION * 2 + 1)) - ROCK_COLOR_VARIATION;
-    int offset_b =
-        (SDL_rand(ROCK_COLOR_VARIATION * 2 + 1)) - ROCK_COLOR_VARIATION;
+    int offset_r = (SDL_rand(ROCK_COLOR_VARIATION * 2 + 1)) - ROCK_COLOR_VARIATION;
+    int offset_g = (SDL_rand(ROCK_COLOR_VARIATION * 2 + 1)) - ROCK_COLOR_VARIATION;
+    int offset_b = (SDL_rand(ROCK_COLOR_VARIATION * 2 + 1)) - ROCK_COLOR_VARIATION;
 
     SDL_Color color = {.r = clamp_color_component(ROCK_COLOR_BASE_R + offset_r),
                        .g = clamp_color_component(ROCK_COLOR_BASE_G + offset_g),
@@ -48,37 +40,29 @@ SDL_Color particle_get_random_rock_color(void) {
 
 SDL_Color particle_get_default_color_by_type(ParticleType type) {
     switch (type) {
-    case ROCK:
-        return COLOR_ROCK;
-    case SAND:
-        return COLOR_SAND;
-    default:
-        return COLOR_EMPTY;
+        case ROCK: return COLOR_ROCK;
+        case SAND: return COLOR_SAND;
+        default: return COLOR_EMPTY;
     }
 }
 
 SDL_Color particle_get_random_color_by_type(ParticleType type) {
     switch (type) {
-    case ROCK:
-        return particle_get_random_rock_color();
-    case SAND:
-        return particle_get_random_sand_color();
-    default:
-        return COLOR_EMPTY;
+        case ROCK: return particle_get_random_rock_color();
+        case SAND: return particle_get_random_sand_color();
+        default: return COLOR_EMPTY;
     }
 }
 
-static void particle_swap_in_grid(Grid *grid, Coordinates source,
-                                   Coordinates destination) {
+static void particle_swap_in_grid(Grid *grid, Coordinates source, Coordinates destination) {
     Particle temporary_particle = grid->particles[source.y][source.x];
     grid->particles[source.y][source.x] = grid->particles[destination.y][destination.x];
     grid->particles[destination.y][destination.x] = temporary_particle;
 }
 
 static void particle_update_sand(Grid *grid, Coordinates coordinates) {
-    if (coordinates.y + 1 >= GRID_HEIGHT) {
+    if (coordinates.y + 1 >= GRID_HEIGHT) 
         return;
-    }
 
     Coordinates below = {coordinates.x, coordinates.y + 1};
     Coordinates below_left = {coordinates.x - 1, coordinates.y + 1};
@@ -116,32 +100,19 @@ static void particle_update_sand(Grid *grid, Coordinates coordinates) {
 }
 
 void particle_update_in_grid(Grid *grid, Coordinates coordinates) {
-    if (!grid) {
-        SDL_Log("Couldn't find grid in particle_update_in_grid.");
+    if (!grid || !grid_is_in_bounds(coordinates)) 
         return;
-    }
-
-    if (!grid_is_in_bounds(coordinates)) {
-        SDL_Log("Not proper grid X/Y coordinate at update particle in grid.");
-        return;
-    }
 
     Particle *particle = &grid->particles[coordinates.y][coordinates.x];
     switch (particle->type) {
-    case SAND:
-        particle_update_sand(grid, coordinates);
-        break;
-    default:
-        break;
+        case SAND: particle_update_sand(grid, coordinates); break;
+        default: break;
     }
 }
 
 bool particle_is_empty(const Particle *particle) {
-    if (!particle) {
-        SDL_Log("Couldn't find particle at checking if Particle is empty.");
+    if (!particle) 
         return false;
-    }
-
+        
     return particle->type == EMPTY;
 }
-
