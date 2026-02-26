@@ -1,4 +1,5 @@
 #define SDL_MAIN_USE_CALLBACKS 1 /* use the callbacks instead of main() */
+
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <time.h>
@@ -11,7 +12,7 @@ typedef struct app_state {
     Display display;
     Grid grid;
     bool left_mouse_pressed;
-    bool right_mouse_pressed;
+    ParticleType particle_in_use;
 } AppState;
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
@@ -52,29 +53,29 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
     AppState *state = appstate;
 
-    if (event->type == SDL_EVENT_QUIT) {
+    if (event->type == SDL_EVENT_QUIT) 
         return SDL_APP_SUCCESS;
-    }
 
     if (event->type == SDL_EVENT_KEY_DOWN) {
-        if (event->key.key == SDLK_ESCAPE) {
-            return SDL_APP_SUCCESS;
+        switch (event->key.key) {
+            case SDLK_ESCAPE: return SDL_APP_SUCCESS;
+            case SDLK_1: state->particle_in_use = SAND; break;
+            case SDLK_2: state->particle_in_use = ROCK; break;
+            case SDLK_3: state->particle_in_use = EMPTY; break;
+            case SDLK_R: grid_cleanup(&state->grid); break;
+            default: break;
         }
     }
 
     if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
         if (event->button.button == SDL_BUTTON_LEFT) {
             state->left_mouse_pressed = true;
-        } else if (event->button.button == SDL_BUTTON_RIGHT) {
-            state->right_mouse_pressed = true;
-        }
+        } 
     }
 
     if (event->type == SDL_EVENT_MOUSE_BUTTON_UP) {
         if (event->button.button == SDL_BUTTON_LEFT) {
             state->left_mouse_pressed = false;
-        } else if (event->button.button == SDL_BUTTON_RIGHT) {
-            state->right_mouse_pressed = false;
         }
     }
 
@@ -83,33 +84,14 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 
 SDL_AppResult SDL_AppIterate(void *appstate) {
     AppState *state = (AppState *)appstate;
-    
-    if (!state) {
+    if (!state || !state->display.renderer) 
         return SDL_APP_FAILURE;
-    }
 
-    if (!state->display.renderer) {
-        return SDL_APP_FAILURE;
-    }
-
-    SDL_SetRenderDrawColor(state->display.renderer, 0, 0, 0, SDL_ALPHA_OPAQUE); 
-    SDL_RenderClear(state->display.renderer);
-    
     float mouse_x, mouse_y;
     SDL_GetMouseState(&mouse_x, &mouse_y);
-    
-    Coordinates coordinates = {
-        .x = (int)(mouse_x / PARTICLE_SIZE),
-        .y = (int)(mouse_y / PARTICLE_SIZE)
-    };
-    
-    if (state->left_mouse_pressed && grid_is_in_bounds(coordinates)) {
-        grid_place_particle(&state->grid, coordinates, SAND);
-    }
-    
-    if (state->right_mouse_pressed && grid_is_in_bounds(coordinates)) {
-        grid_place_particle(&state->grid, coordinates, ROCK);
-    }
+    Coordinates coordinates = {(int)(mouse_x / PARTICLE_SIZE), (int)(mouse_y / PARTICLE_SIZE)};
+    if (state->left_mouse_pressed && grid_is_in_bounds(coordinates)) 
+        grid_apply_brush(&state->grid, coordinates, 5, state->particle_in_use);
     
     grid_update(&state->grid);
     grid_render(&state->grid, &state->display);
