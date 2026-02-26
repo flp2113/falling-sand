@@ -24,7 +24,7 @@ cmake --build .
 
 | Input | Action |
 |-------|--------|
-| **Left Mouse** | Hold to place sand particles |
-| **Right Mouse** | Hold to place rock particles |
+| **1, 2, 3** | Choose particle (sand, rock, empty) |
+| **Left Mouse** | Hold to place particles |
 | **ESC** | Exit application |
 
