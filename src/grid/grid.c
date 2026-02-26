@@ -115,3 +115,21 @@ bool grid_is_particle_empty(Grid *grid, Coordinates coordinates) {
 bool grid_is_in_bounds(Coordinates coordinates) {
     return (coordinates.x >= 0 && coordinates.x < GRID_WIDTH && coordinates.y >= 0 && coordinates.y < GRID_HEIGHT);
 }
+
+void grid_apply_brush(Grid *grid, Coordinates center, int radius, ParticleType type) {
+    if (!grid || !grid_is_in_bounds(center) || radius < 0)
+        return;
+
+    for (int dy = -radius; dy <= radius; dy++) {
+        for (int dx = -radius; dx <= radius; dx++) {
+            if (dx * dx + dy * dy > radius * radius)
+                continue;
+
+            Coordinates pos = {center.x + dx, center.y + dy};
+            if (!grid_is_in_bounds(pos))
+                continue;
+
+            grid_place_particle(grid, pos, type);
+        }
+    }
+}
