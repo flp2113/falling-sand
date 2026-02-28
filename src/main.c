@@ -3,7 +3,6 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <time.h>
-
 #include "config.h"
 #include "display/display.h"
 #include "grid/grid.h"
@@ -13,11 +12,10 @@ typedef struct app_state {
     Grid grid;
     bool left_mouse_pressed;
     ParticleType particle_in_use;
+    int brush_radius;
 } AppState;
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
-    SDL_srand((Uint64)time(NULL));
-
     AppState *state = SDL_calloc(1, sizeof(AppState));
     if (!state) {
         SDL_Log("Couldn't allocate AppState.");
@@ -46,6 +44,11 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
         return SDL_APP_FAILURE;
     }
 
+    state->brush_radius = DEFAULT_BRUSH_RADIUS;
+    state->particle_in_use = SAND;
+
+    SDL_srand((Uint64)time(NULL));
+
     *appstate = state;
     return SDL_APP_CONTINUE;
 }
@@ -65,17 +68,25 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
             case SDLK_R: grid_cleanup(&state->grid); break;
             default: break;
         }
-    }
+    } 
 
     if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
-        if (event->button.button == SDL_BUTTON_LEFT) {
+        if (event->button.button == SDL_BUTTON_LEFT) 
             state->left_mouse_pressed = true;
-        } 
     }
 
     if (event->type == SDL_EVENT_MOUSE_BUTTON_UP) {
-        if (event->button.button == SDL_BUTTON_LEFT) {
+        if (event->button.button == SDL_BUTTON_LEFT) 
             state->left_mouse_pressed = false;
+    }
+
+    if (event->type == SDL_EVENT_MOUSE_WHEEL) {
+        if (event->wheel.y > 0) {
+            if (state->brush_radius < MAX_BRUSH_RADIUS)
+                state->brush_radius++;
+        } else if (event->wheel.y < 0) {
+            if (state->brush_radius > MIN_BRUSH_RADIUS)
+                state->brush_radius--;
         }
     }
 
@@ -91,7 +102,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     SDL_GetMouseState(&mouse_x, &mouse_y);
     Coordinates coordinates = {(int)(mouse_x / PARTICLE_SIZE), (int)(mouse_y / PARTICLE_SIZE)};
     if (state->left_mouse_pressed && grid_is_in_bounds(coordinates)) 
-        grid_apply_brush(&state->grid, coordinates, 5, state->particle_in_use);
+        grid_apply_brush(&state->grid, coordinates, state->brush_radius, state->particle_in_use);
     
     grid_update(&state->grid);
     grid_render(&state->grid, &state->display);
