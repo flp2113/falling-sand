@@ -25,6 +25,7 @@ bool grid_set_particle(Grid *grid, Coordinates coordinates, const Particle *part
 bool grid_is_empty(Grid *grid);
 bool grid_is_in_bounds(Coordinates coordinates);
 bool grid_is_particle_empty(Grid *grid, Coordinates coordinates);
+bool grid_particle_is_solid(Grid* grid, Coordinates coordinates);
 
 void grid_apply_brush(Grid *grid, Coordinates center, int radius, ParticleType type);
 

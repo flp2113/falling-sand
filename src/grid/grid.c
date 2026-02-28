@@ -1,6 +1,7 @@
 #include <SDL3/SDL.h>
-
+#include <stdbool.h>
 #include "grid.h"
+#include "../particle/particle.h"
 
 bool grid_initialize(Grid *grid) { 
     if (!grid_cleanup(grid)) 
@@ -112,8 +113,36 @@ bool grid_is_particle_empty(Grid *grid, Coordinates coordinates) {
     return particle_is_empty(&grid->particles[coordinates.y][coordinates.x]);
 }
 
+bool grid_particle_is_solid(Grid* grid, Coordinates coordinates) {
+    if (!grid || !grid_is_in_bounds(coordinates))
+        return false;
+    return particle_is_solid(grid_get_particle(grid, coordinates));
+}
+
 bool grid_is_in_bounds(Coordinates coordinates) {
     return (coordinates.x >= 0 && coordinates.x < GRID_WIDTH && coordinates.y >= 0 && coordinates.y < GRID_HEIGHT);
+}
+
+static int particle_type_priority(ParticleType type) {
+    switch (type) {
+        case SAND: return 1;
+        case ROCK: return 2;
+        default: return 0;
+    }
+}
+
+static bool grid_can_place_particle(Grid *grid, Coordinates pos, ParticleType type) {
+    if (!grid_is_in_bounds(pos))
+        return false;
+
+    ParticleType existing_particle_type = grid_get_particle(grid, pos)->type;
+    if (type == existing_particle_type)
+        return false;
+
+    if (type == EMPTY)
+        return true;
+    
+    return particle_type_priority(type) > particle_type_priority(existing_particle_type); 
 }
 
 void grid_apply_brush(Grid *grid, Coordinates center, int radius, ParticleType type) {
@@ -126,10 +155,8 @@ void grid_apply_brush(Grid *grid, Coordinates center, int radius, ParticleType t
                 continue;
 
             Coordinates pos = {center.x + dx, center.y + dy};
-            if (!grid_is_in_bounds(pos))
-                continue;
-
-            grid_place_particle(grid, pos, type);
+            if (grid_can_place_particle(grid, pos, type)) 
+                grid_place_particle(grid, pos, type);
         }
     }
 }
