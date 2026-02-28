@@ -8,10 +8,14 @@ static void particle_swap_in_grid(Grid *grid, Coordinates source, Coordinates de
     grid->particles[destination.y][destination.x] = temporary_particle;
 }
 
-static bool is_particle_solid_at(Grid *grid, Coordinates coordinates) {
-    if (!grid || !grid_is_in_bounds(coordinates))
-        return true;
-    return grid->particles[coordinates.y][coordinates.x].type == ROCK;
+bool particle_is_type_solid(ParticleType type) {
+    return type == ROCK;
+}
+
+bool particle_is_solid(const Particle *particle) {
+    if (!particle)
+        return false;
+    return particle_is_type_solid(particle->type);
 }
 
 static void particle_update_sand(Grid *grid, Coordinates coordinates) {
@@ -27,8 +31,8 @@ static void particle_update_sand(Grid *grid, Coordinates coordinates) {
     bool is_below_empty = grid_is_particle_empty(grid, below);
     bool is_below_left_empty = grid_is_particle_empty(grid, below_left);
     bool is_below_right_empty = grid_is_particle_empty(grid, below_right);
-    bool can_go_below_left = is_below_left_empty && !is_particle_solid_at(grid, left);
-    bool can_go_below_right = is_below_right_empty && !is_particle_solid_at(grid, right);
+    bool can_go_below_left = is_below_left_empty && !grid_particle_is_solid(grid, left);
+    bool can_go_below_right = is_below_right_empty && !grid_particle_is_solid(grid, right);
 
     if (is_below_empty) {
         particle_swap_in_grid(grid, coordinates, below);
@@ -62,11 +66,8 @@ void particle_update_in_grid(Grid *grid, Coordinates coordinates) {
 
     Particle *particle = &grid->particles[coordinates.y][coordinates.x];
     switch (particle->type) {
-    case SAND:
-        particle_update_sand(grid, coordinates);
-        break;
-    default:
-        break;
+        case SAND: particle_update_sand(grid, coordinates); break;
+        default: break;
     }
 }
 
@@ -125,6 +126,5 @@ SDL_Color particle_get_random_color_by_type(ParticleType type) {
 bool particle_is_empty(const Particle *particle) {
     if (!particle)
         return false;
-
     return particle->type == EMPTY;
 }

@@ -24,5 +24,7 @@ SDL_Color particle_get_default_color_by_type(ParticleType type);
 SDL_Color particle_get_random_color_by_type(ParticleType type);
 
 bool particle_is_empty(const Particle *particle);
+bool particle_is_solid(const Particle *particle);
+bool particle_is_type_solid(ParticleType type);
 
 #endif
