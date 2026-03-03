@@ -3,7 +3,7 @@
 #include "display.h"
 
 static void display_destroy_resources(Display *display) {
-    if (display->texture)
+    if (display->texture) 
         SDL_DestroyTexture(display->texture);
 
     if (display->renderer)
@@ -12,7 +12,9 @@ static void display_destroy_resources(Display *display) {
     if (display->window)
         SDL_DestroyWindow(display->window);
 
-    SDL_QuitSubSystem(display->init_flags);
+    if (display->init_flags)
+        SDL_QuitSubSystem(display->init_flags);
+
     *display = (Display){0};
 }
 
@@ -31,7 +33,7 @@ bool display_initialize(Display *display, const DisplayConfig *config) {
     display->init_flags = init_flags;
 
     if (!SDL_InitSubSystem(init_flags))
-        goto failed;
+        return false;
 
     if (!SDL_CreateWindowAndRenderer(title, width, height, window_flags, &display->window, &display->renderer))
         goto failed;
@@ -58,9 +60,7 @@ failed:
     return false;
 }
 
-void display_cleanup(Display *display) {
-    if (!display)
-        return;
-
-    display_destroy_resources(display);
+void display_destroy(Display* display) {
+    if (display)
+        display_destroy_resources(display);
 }

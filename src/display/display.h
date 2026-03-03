@@ -20,6 +20,6 @@ typedef struct display {
 } Display;
 
 bool display_initialize(Display *display, const DisplayConfig *config);
-void display_cleanup(Display *display);
+void display_destroy(Display *display);
 
 #endif
