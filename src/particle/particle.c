@@ -81,45 +81,32 @@ static Uint8 clamp_color_component(int value) {
     return (Uint8)value;
 }
 
-SDL_Color particle_get_random_sand_color(void) {
-    int offset_r = (SDL_rand(SAND_COLOR_VARIATION * 2 + 1)) - SAND_COLOR_VARIATION;
-    int offset_g = (SDL_rand(SAND_COLOR_VARIATION * 2 + 1)) - SAND_COLOR_VARIATION;
-    int offset_b = (SDL_rand(SAND_COLOR_VARIATION * 2 + 1)) - SAND_COLOR_VARIATION;
+SDL_Color particle_get_random_color_with_variation(SDL_Color color_base, int variation) {
+    if (variation == 0)
+        return color_base;
 
-    SDL_Color color = {.r = clamp_color_component(SAND_COLOR_BASE_R + offset_r),
-                       .g = clamp_color_component(SAND_COLOR_BASE_G + offset_g),
-                       .b = clamp_color_component(SAND_COLOR_BASE_B + offset_b),
-                       .a = SAND_COLOR_BASE_A};
-
-    return color;
-}
-
-SDL_Color particle_get_random_rock_color(void) {
-    int offset_r = (SDL_rand(ROCK_COLOR_VARIATION * 2 + 1)) - ROCK_COLOR_VARIATION;
-    int offset_g = (SDL_rand(ROCK_COLOR_VARIATION * 2 + 1)) - ROCK_COLOR_VARIATION;
-    int offset_b = (SDL_rand(ROCK_COLOR_VARIATION * 2 + 1)) - ROCK_COLOR_VARIATION;
-
-    SDL_Color color = {.r = clamp_color_component(ROCK_COLOR_BASE_R + offset_r),
-                       .g = clamp_color_component(ROCK_COLOR_BASE_G + offset_g),
-                       .b = clamp_color_component(ROCK_COLOR_BASE_B + offset_b),
-                       .a = ROCK_COLOR_BASE_A};
-
-    return color;
+    int range_variation = variation * 2 + 1;
+    return (SDL_Color) {
+        .r = clamp_color_component(color_base.r + SDL_rand(range_variation) - variation),
+        .g = clamp_color_component(color_base.g + SDL_rand(range_variation) - variation),
+        .b = clamp_color_component(color_base.b + SDL_rand(range_variation) - variation),
+        .a = color_base.a
+    };
 }
 
 SDL_Color particle_get_default_color_by_type(ParticleType type) {
     switch (type) {
-        case ROCK: return COLOR_ROCK;
-        case SAND: return COLOR_SAND;
-        default: return COLOR_EMPTY;
+        case ROCK: return ROCK_COLOR;
+        case SAND: return SAND_COLOR;
+        default: return EMPTY_COLOR;
     }
 }
 
 SDL_Color particle_get_random_color_by_type(ParticleType type) {
     switch (type) {
-        case ROCK: return particle_get_random_rock_color();
-        case SAND: return particle_get_random_sand_color();
-        default: return COLOR_EMPTY;
+        case ROCK: return particle_get_random_color_with_variation(ROCK_COLOR, SAND_COLOR_VARIATION);
+        case SAND: return particle_get_random_color_with_variation(SAND_COLOR, ROCK_COLOR_VARIATION);
+        default: return EMPTY_COLOR;
     }
 }
 
