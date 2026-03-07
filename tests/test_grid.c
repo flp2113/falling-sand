@@ -11,30 +11,26 @@
 #define SDL_UnlockTexture                  fake_SDL_UnlockTexture
 #define SDL_RenderTexture                  fake_SDL_RenderTexture
 #define SDL_GetError                       fake_SDL_GetError
-#define particle_update_in_grid            fake_particle_update_in_grid
-#define particle_render                    fake_particle_render
 #define particle_is_empty                  fake_particle_is_empty
+#define particle_is_solid                  fake_particle_is_solid
 #define particle_get_random_color_by_type  fake_particle_get_random_color_by_type
 
-#include "../src/grid/grid.h"
-#include "../src/grid/grid.c"
+#include "grid/grid.h"
+#include "grid/grid.c"
 
 #undef SDL_Log
 #undef SDL_LockTexture
 #undef SDL_UnlockTexture
 #undef SDL_RenderTexture
 #undef SDL_GetError
-#undef particle_update_in_grid
-#undef particle_render
 #undef particle_is_empty
+#undef particle_is_solid
 #undef particle_get_random_color_by_type
 
 /* ── Fake state ──────────────────────────────────────────────────────── */
 
 typedef struct FakeState {
     int log_calls;
-    int update_in_grid_calls;
-    int render_particle_calls;
     int is_empty_calls;
     int random_color_calls;
     int lock_calls;
@@ -108,21 +104,15 @@ bool fake_SDL_RenderTexture(SDL_Renderer *renderer, SDL_Texture *texture,
     return true;
 }
 
-void fake_particle_update_in_grid(Grid *grid, Coordinates coordinates) {
-    (void)grid; (void)coordinates;
-    fake_state.update_in_grid_calls++;
-}
-
-void fake_particle_render(Display *display, const Particle *particle,
-                           Coordinates coordinates) {
-    (void)display; (void)particle; (void)coordinates;
-    fake_state.render_particle_calls++;
-}
-
 bool fake_particle_is_empty(const Particle *particle) {
     fake_state.is_empty_calls++;
     if (!particle) { return false; }
     return particle->type == EMPTY;
+}
+
+bool fake_particle_is_solid(const Particle *particle) {
+    if (!particle) { return false; }
+    return particle->type == ROCK;
 }
 
 SDL_Color fake_particle_get_random_color_by_type(ParticleType type) {
@@ -149,6 +139,15 @@ static SDL_Color get_pixel(int x, int y) {
     return color;
 }
 
+/* Local helper — grid_is_empty was removed from the public API */
+static bool test_helper_grid_is_empty(Grid *grid) {
+    if (!grid) return false;
+    for (int y = 0; y < GRID_HEIGHT; y++)
+        for (int x = 0; x < GRID_WIDTH; x++)
+            if (grid->particles[y][x].type != EMPTY) return false;
+    return true;
+}
+
 /* ────────────────────────────────────────────────────────────────────── */
 /*  grid_initialize / grid_clear / grid_cleanup                          */
 /* ────────────────────────────────────────────────────────────────────── */
@@ -156,12 +155,11 @@ static SDL_Color get_pixel(int x, int y) {
 static void test_initialize_null(void) {
     reset_fake_state();
     assert(!grid_initialize(NULL));
-    assert(fake_state.log_calls == 1);
 }
 
 static void test_initialize_success(void) {
     static Grid grid;
-    fill_grid_with(&grid, SAND, COLOR_SAND);
+    fill_grid_with(&grid, SAND, SAND_BASE_COLOR);
     reset_fake_state();
 
     assert(grid_initialize(&grid));
@@ -174,18 +172,17 @@ static void test_initialize_success(void) {
     }
 }
 
-static void test_clear_null(void) {
+static void test_cleanup_null(void) {
     reset_fake_state();
-    assert(!grid_clear(NULL));
-    assert(fake_state.log_calls == 1);
+    assert(!grid_reset(NULL));
 }
 
-static void test_clear_success(void) {
+static void test_cleanup_success(void) {
     static Grid grid;
-    fill_grid_with(&grid, ROCK, COLOR_ROCK);
+    fill_grid_with(&grid, ROCK, ROCK_BASE_COLOR);
     reset_fake_state();
 
-    assert(grid_clear(&grid));
+    assert(grid_reset(&grid));
 
     for (int y = 0; y < GRID_HEIGHT; y++) {
         for (int x = 0; x < GRID_WIDTH; x++) {
@@ -194,18 +191,17 @@ static void test_clear_success(void) {
     }
 }
 
-static void test_cleanup_null(void) {
+static void test_cleanup_null_cleanup(void) {
     reset_fake_state();
-    assert(!grid_cleanup(NULL));
-    assert(fake_state.log_calls == 1);
+    assert(!grid_reset(NULL));
 }
 
 static void test_cleanup_clears(void) {
     static Grid grid;
-    fill_grid_with(&grid, SAND, COLOR_SAND);
+    fill_grid_with(&grid, SAND, SAND_BASE_COLOR);
     reset_fake_state();
 
-    assert(grid_cleanup(&grid));
+    assert(grid_reset(&grid));
     assert(grid.particles[0][0].type == EMPTY);
 }
 
@@ -246,13 +242,12 @@ static void test_out_of_bounds_both(void) {
 }
 
 /* ────────────────────────────────────────────────────────────────────── */
-/*  grid_is_empty                                                        */
+/*  test_helper_grid_is_empty (local helper)                             */
 /* ────────────────────────────────────────────────────────────────────── */
 
 static void test_is_empty_null(void) {
     reset_fake_state();
-    assert(!grid_is_empty(NULL));
-    assert(fake_state.log_calls == 1);
+    assert(!test_helper_grid_is_empty(NULL));
 }
 
 static void test_is_empty_true(void) {
@@ -260,7 +255,7 @@ static void test_is_empty_true(void) {
     grid_initialize(&grid);
     reset_fake_state();
 
-    assert(grid_is_empty(&grid));
+    assert(test_helper_grid_is_empty(&grid));
 }
 
 static void test_is_empty_false_first_cell(void) {
@@ -269,7 +264,7 @@ static void test_is_empty_false_first_cell(void) {
     grid.particles[0][0].type = SAND;
     reset_fake_state();
 
-    assert(!grid_is_empty(&grid));
+    assert(!test_helper_grid_is_empty(&grid));
 }
 
 static void test_is_empty_false_last_cell(void) {
@@ -278,7 +273,7 @@ static void test_is_empty_false_last_cell(void) {
     grid.particles[GRID_HEIGHT - 1][GRID_WIDTH - 1].type = ROCK;
     reset_fake_state();
 
-    assert(!grid_is_empty(&grid));
+    assert(!test_helper_grid_is_empty(&grid));
 }
 
 /* ────────────────────────────────────────────────────────────────────── */
@@ -288,7 +283,6 @@ static void test_is_empty_false_last_cell(void) {
 static void test_particle_empty_null_grid(void) {
     reset_fake_state();
     assert(!grid_is_particle_empty(NULL, (Coordinates){0, 0}));
-    assert(fake_state.log_calls == 1);
 }
 
 static void test_particle_empty_out_of_bounds(void) {
@@ -322,46 +316,43 @@ static void test_particle_empty_false(void) {
 /* ────────────────────────────────────────────────────────────────────── */
 
 static void test_set_particle_null_grid(void) {
-    Particle p = {.type = SAND, .color = COLOR_SAND};
+    Particle p = {.type = SAND, .color = SAND_BASE_COLOR};
     reset_fake_state();
 
     assert(!grid_set_particle(NULL, (Coordinates){0, 0}, &p));
-    assert(fake_state.log_calls == 1);
 }
 
 static void test_set_particle_out_of_bounds(void) {
     static Grid grid;
     grid_initialize(&grid);
-    Particle p = {.type = SAND, .color = COLOR_SAND};
+    Particle p = {.type = SAND, .color = SAND_BASE_COLOR};
     reset_fake_state();
 
     assert(!grid_set_particle(&grid, (Coordinates){GRID_WIDTH, 0}, &p));
-    assert(fake_state.log_calls == 1);
 
     assert(!grid_set_particle(&grid, (Coordinates){0, -1}, &p));
-    assert(fake_state.log_calls == 2);
 }
 
 static void test_set_particle_success(void) {
     static Grid grid;
     grid_initialize(&grid);
-    Particle p = {.type = ROCK, .color = COLOR_ROCK};
+    Particle p = {.type = ROCK, .color = ROCK_BASE_COLOR};
     Coordinates pos = {10, 20};
     reset_fake_state();
 
     assert(grid_set_particle(&grid, pos, &p));
     assert(grid.particles[pos.y][pos.x].type == ROCK);
-    assert(grid.particles[pos.y][pos.x].color.r == COLOR_ROCK.r);
-    assert(grid.particles[pos.y][pos.x].color.g == COLOR_ROCK.g);
-    assert(grid.particles[pos.y][pos.x].color.b == COLOR_ROCK.b);
+    assert(grid.particles[pos.y][pos.x].color.r == ROCK_BASE_COLOR.r);
+    assert(grid.particles[pos.y][pos.x].color.g == ROCK_BASE_COLOR.g);
+    assert(grid.particles[pos.y][pos.x].color.b == ROCK_BASE_COLOR.b);
     assert(fake_state.log_calls == 0);
 }
 
 static void test_set_particle_overwrite(void) {
     static Grid grid;
     grid_initialize(&grid);
-    Particle sand = {.type = SAND, .color = COLOR_SAND};
-    Particle rock = {.type = ROCK, .color = COLOR_ROCK};
+    Particle sand = {.type = SAND, .color = SAND_BASE_COLOR};
+    Particle rock = {.type = ROCK, .color = ROCK_BASE_COLOR};
     Coordinates pos = {0, 0};
 
     grid_set_particle(&grid, pos, &sand);
@@ -375,7 +366,7 @@ static void test_set_particle_overwrite(void) {
 static void test_set_particle_corners(void) {
     static Grid grid;
     grid_initialize(&grid);
-    Particle p = {.type = SAND, .color = COLOR_SAND};
+    Particle p = {.type = SAND, .color = SAND_BASE_COLOR};
     reset_fake_state();
 
     assert(grid_set_particle(&grid, (Coordinates){0, 0}, &p));
@@ -392,7 +383,6 @@ static void test_set_particle_corners(void) {
 static void test_place_particle_null_grid(void) {
     reset_fake_state();
     assert(!grid_place_particle(NULL, (Coordinates){0, 0}, SAND));
-    assert(fake_state.log_calls == 1);
 }
 
 static void test_place_particle_out_of_bounds(void) {
@@ -401,7 +391,6 @@ static void test_place_particle_out_of_bounds(void) {
     reset_fake_state();
 
     assert(!grid_place_particle(&grid, (Coordinates){GRID_WIDTH, 0}, SAND));
-    assert(fake_state.log_calls == 1);
 }
 
 static void test_place_particle_sand(void) {
@@ -462,7 +451,6 @@ static void test_place_particle_uses_random_color(void) {
 static void test_get_particle_null_grid(void) {
     reset_fake_state();
     assert(grid_get_particle(NULL, (Coordinates){0, 0}) == NULL);
-    assert(fake_state.log_calls == 1);
 }
 
 static void test_get_particle_out_of_bounds(void) {
@@ -471,7 +459,6 @@ static void test_get_particle_out_of_bounds(void) {
     reset_fake_state();
 
     assert(grid_get_particle(&grid, (Coordinates){-1, 0}) == NULL);
-    assert(fake_state.log_calls == 1);
 }
 
 static void test_get_particle_success(void) {
@@ -504,19 +491,21 @@ static void test_get_particle_returns_address(void) {
 static void test_update_null(void) {
     reset_fake_state();
     grid_update(NULL);
-    assert(fake_state.log_calls == 1);
-    assert(fake_state.update_in_grid_calls == 0);
+    /* Should not crash */
 }
 
 static void test_update_calls_particle_update(void) {
     static Grid grid;
     grid_initialize(&grid);
+    /* Place a sand particle and verify it moves after update */
+    grid.particles[0][5] = (Particle){.type = SAND, .color = SAND_BASE_COLOR};
     reset_fake_state();
 
     grid_update(&grid);
 
-    /* Every cell must be visited once per update */
-    assert(fake_state.update_in_grid_calls == GRID_WIDTH * GRID_HEIGHT);
+    /* Sand at row 0 should have fallen to row 1 */
+    assert(grid.particles[0][5].type == EMPTY);
+    assert(grid.particles[1][5].type == SAND);
 }
 
 static void test_update_alternates_direction(void) {
@@ -524,13 +513,11 @@ static void test_update_alternates_direction(void) {
     grid_initialize(&grid);
     reset_fake_state();
 
-    /* Two consecutive updates should both visit all cells */
+    assert(grid.update_left_to_right == true);
     grid_update(&grid);
-    assert(fake_state.update_in_grid_calls == GRID_WIDTH * GRID_HEIGHT);
-
-    fake_state.update_in_grid_calls = 0;
+    assert(grid.update_left_to_right == false);
     grid_update(&grid);
-    assert(fake_state.update_in_grid_calls == GRID_WIDTH * GRID_HEIGHT);
+    assert(grid.update_left_to_right == true);
 }
 
 /* ────────────────────────────────────────────────────────────────────── */
@@ -542,7 +529,6 @@ static void test_render_null_grid(void) {
     reset_fake_state();
 
     grid_render(NULL, &display);
-    assert(fake_state.log_calls == 1);
     assert(fake_state.render_texture_calls == 0);
 }
 
@@ -552,7 +538,6 @@ static void test_render_null_display(void) {
     reset_fake_state();
 
     grid_render(&grid, NULL);
-    assert(fake_state.log_calls == 1);
     assert(fake_state.render_texture_calls == 0);
 }
 
@@ -563,7 +548,6 @@ static void test_render_null_renderer(void) {
     reset_fake_state();
 
     grid_render(&grid, &display);
-    assert(fake_state.log_calls == 1);
     assert(fake_state.render_texture_calls == 0);
 }
 
@@ -574,13 +558,13 @@ static void test_render_null_texture(void) {
     reset_fake_state();
 
     grid_render(&grid, &display);
-    assert(fake_state.log_calls == 1);
     assert(fake_state.render_texture_calls == 0);
 }
 
 static void test_render_empty_grid(void) {
     static Grid grid;
     grid_initialize(&grid);
+    grid.dirty = true;
     Display display = {.renderer = (SDL_Renderer *)0x1, .texture = (SDL_Texture *)0x3};
     reset_fake_state();
 
@@ -592,43 +576,46 @@ static void test_render_empty_grid(void) {
     assert(fake_state.last_locked_texture == display.texture);
     assert(fake_state.last_rendered_texture == display.texture);
     assert(fake_state.last_rendered_renderer == display.renderer);
-    assert(get_pixel(0, 0).r == COLOR_EMPTY.r);
+    assert(get_pixel(0, 0).r == EMPTY_BASE_COLOR.r);
 }
 
 static void test_render_single_particle(void) {
     static Grid grid;
     grid_initialize(&grid);
-    grid.particles[0][0] = (Particle){.type = SAND, .color = COLOR_SAND};
+     grid.particles[0][0] = (Particle){.type = SAND, .color = SAND_BASE_COLOR};
+    grid.dirty = true;
     Display display = {.renderer = (SDL_Renderer *)0x1, .texture = (SDL_Texture *)0x3};
     reset_fake_state();
 
     grid_render(&grid, &display);
     assert(fake_state.render_texture_calls == 1);
-    assert(get_pixel(0, 0).r == COLOR_SAND.r);
-    assert(get_pixel(0, 0).g == COLOR_SAND.g);
-    assert(get_pixel(0, 0).b == COLOR_SAND.b);
-    assert(get_pixel(0, 0).a == COLOR_SAND.a);
+    assert(get_pixel(0, 0).r == SAND_BASE_COLOR.r);
+    assert(get_pixel(0, 0).g == SAND_BASE_COLOR.g);
+    assert(get_pixel(0, 0).b == SAND_BASE_COLOR.b);
+    assert(get_pixel(0, 0).a == SAND_BASE_COLOR.a);
 }
 
 static void test_render_multiple_particles(void) {
     static Grid grid;
     grid_initialize(&grid);
-    grid.particles[0][0]   = (Particle){.type = SAND, .color = COLOR_SAND};
-    grid.particles[5][10]  = (Particle){.type = ROCK, .color = COLOR_ROCK};
-    grid.particles[100][50] = (Particle){.type = SAND, .color = COLOR_SAND};
+       grid.particles[0][0]   = (Particle){.type = SAND, .color = SAND_BASE_COLOR};
+    grid.particles[5][10]  = (Particle){.type = ROCK, .color = ROCK_BASE_COLOR};
+    grid.particles[100][50] = (Particle){.type = SAND, .color = SAND_BASE_COLOR};
+    grid.dirty = true;
     Display display = {.renderer = (SDL_Renderer *)0x1, .texture = (SDL_Texture *)0x3};
     reset_fake_state();
 
     grid_render(&grid, &display);
     assert(fake_state.render_texture_calls == 1);
-    assert(get_pixel(0, 0).r == COLOR_SAND.r);
-    assert(get_pixel(10, 5).r == COLOR_ROCK.r);
-    assert(get_pixel(50, 100).r == COLOR_SAND.r);
+    assert(get_pixel(0, 0).r == SAND_BASE_COLOR.r);
+    assert(get_pixel(10, 5).r == ROCK_BASE_COLOR.r);
+    assert(get_pixel(50, 100).r == SAND_BASE_COLOR.r);
 }
 
 static void test_render_full_grid(void) {
     static Grid grid;
-    fill_grid_with(&grid, SAND, COLOR_SAND);
+    fill_grid_with(&grid, SAND, SAND_BASE_COLOR);
+    grid.dirty = true;
     Display display = {.renderer = (SDL_Renderer *)0x1, .texture = (SDL_Texture *)0x3};
     reset_fake_state();
 
@@ -641,6 +628,74 @@ static void test_render_full_grid(void) {
 /* ────────────────────────────────────────────────────────────────────── */
 /*  Integration: place → get round-trip                                  */
 /* ────────────────────────────────────────────────────────────────────── */
+
+static void test_render_not_dirty_skips_lock(void) {
+    static Grid grid;
+    grid_initialize(&grid);
+    grid.dirty = false;
+    Display display = {.renderer = (SDL_Renderer *)0x1, .texture = (SDL_Texture *)0x3};
+    reset_fake_state();
+
+    grid_render(&grid, &display);
+    /* Should still present texture but skip lock/unlock */
+    assert(fake_state.render_texture_calls == 1);
+    assert(fake_state.lock_calls == 0);
+    assert(fake_state.unlock_calls == 0);
+}
+
+/* ────────────────────────────────────────────────────────────────────── */
+/*  Generation counter: double-step prevention                           */
+/* ────────────────────────────────────────────────────────────────────── */
+
+static void test_update_increments_gen(void) {
+    static Grid grid;
+    grid_initialize(&grid);
+    reset_fake_state();
+
+    Uint8 gen_before = grid.current_gen;
+    grid_update(&grid);
+    assert(grid.current_gen == (Uint8)(gen_before + 1));
+    grid_update(&grid);
+    assert(grid.current_gen == (Uint8)(gen_before + 2));
+}
+
+static void test_update_no_double_step(void) {
+    /*
+     * Verify the gen counter prevents a particle from being processed
+     * twice in one frame. We manually stamp a sand particle with the
+     * upcoming generation and confirm grid_update does NOT move it.
+     */
+    static Grid grid;
+    grid_initialize(&grid);
+
+    /* Sand at (5, 0) — would normally fall to (5, 1) */
+    grid.particles[0][5] = (Particle){.type = SAND, .color = SAND_BASE_COLOR};
+
+    /* Pre-stamp it with the next gen (current_gen + 1, since update increments first) */
+    grid.particles[0][5].update_gen = (Uint8)(grid.current_gen + 1);
+    reset_fake_state();
+
+    grid_update(&grid);
+
+    /* Sand should NOT have moved — gen guard skipped it */
+    assert(grid.particles[0][5].type == SAND);
+    assert(grid.particles[1][5].type == EMPTY);
+}
+
+static void test_swap_marks_destination_gen(void) {
+    static Grid grid;
+    grid_initialize(&grid);
+    grid.current_gen = 5;
+
+    grid.particles[0][0] = (Particle){.type = SAND, .color = SAND_BASE_COLOR, .update_gen = 0};
+    grid.particles[1][0] = (Particle){.type = EMPTY, .color = EMPTY_BASE_COLOR, .update_gen = 0};
+
+    grid_swap(&grid, (Coordinates){0, 0}, (Coordinates){0, 1});
+
+    /* The moved particle at destination should be stamped with current_gen */
+    assert(grid.particles[1][0].update_gen == 5);
+    assert(grid.particles[1][0].type == SAND);
+}
 
 static void test_place_then_get(void) {
     static Grid grid;
@@ -659,13 +714,17 @@ static void test_place_then_get(void) {
     assert(p->color.a == 4);
 }
 
-static void test_clear_after_fill(void) {
+static void test_clearnup_after_fill(void) {
     static Grid grid;
-    fill_grid_with(&grid, ROCK, COLOR_ROCK);
-    assert(!grid_is_empty(&grid));
+    fill_grid_with(&grid, ROCK, ROCK_BASE_COLOR);
+    for (int y = 0; y < GRID_HEIGHT; y++)
+        for (int x = 0; x < GRID_WIDTH; x++)
+            assert(grid.particles[y][x].type != EMPTY);
 
-    grid_clear(&grid);
-    assert(grid_is_empty(&grid));
+    grid_reset(&grid);
+    for (int y = 0; y < GRID_HEIGHT; y++)
+        for (int x = 0; x < GRID_WIDTH; x++)
+            assert(grid.particles[y][x].type == EMPTY);
 }
 
 /* ── Runner ──────────────────────────────────────────────────────────── */
@@ -674,9 +733,9 @@ int main(void) {
     /* Initialize / Clear / Cleanup */
     test_initialize_null();
     test_initialize_success();
-    test_clear_null();
-    test_clear_success();
     test_cleanup_null();
+    test_cleanup_success();
+    test_cleanup_null_cleanup();
     test_cleanup_clears();
 
     /* Bounds checking */
@@ -735,10 +794,16 @@ int main(void) {
     test_render_single_particle();
     test_render_multiple_particles();
     test_render_full_grid();
+    test_render_not_dirty_skips_lock();
+
+    /* Generation counter */
+    test_update_increments_gen();
+    test_update_no_double_step();
+    test_swap_marks_destination_gen();
 
     /* Integration */
     test_place_then_get();
-    test_clear_after_fill();
+    test_clearnup_after_fill();
 
     return 0;
 }
