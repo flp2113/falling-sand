@@ -25,6 +25,7 @@ cmake --build .
 | Input | Action |
 |-------|--------|
 | **1, 2, 3** | Choose particle (sand, rock, empty) |
+| **R** | Reset grid |
 | **Left Mouse** | Hold to place particles |
 | **ESC** | Exit application |
 
