@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 typedef struct display_config {
-    const char *title;
+    const char* title;
     int width;
     int height;
     SDL_WindowFlags window_flags;
@@ -13,13 +13,13 @@ typedef struct display_config {
     SDL_RendererLogicalPresentation presentation;
 } DisplayConfig;
 typedef struct display {
-    SDL_Window *window;
-    SDL_Renderer *renderer;
-    SDL_Texture *texture;
+    SDL_Window* window;
+    SDL_Renderer* renderer;
+    SDL_Texture* texture;
     SDL_InitFlags init_flags;
 } Display;
 
-bool display_initialize(Display *display, const DisplayConfig *config);
-void display_destroy(Display *display);
+bool display_initialize(Display* display, const DisplayConfig* config);
+void display_destroy(Display* display);
 
 #endif

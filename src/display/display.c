@@ -1,8 +1,9 @@
 #include <SDL3/SDL.h>
-#include "../config.h"
-#include "display.h"
 
-static void display_destroy_resources(Display *display) {
+#include "config/simulation_config.h"
+#include "display/display.h"
+
+static void display_destroy_resources(Display* display) {
     if (display->texture) 
         SDL_DestroyTexture(display->texture);
 
@@ -18,7 +19,7 @@ static void display_destroy_resources(Display *display) {
     *display = (Display){0};
 }
 
-bool display_initialize(Display *display, const DisplayConfig *config) {
+bool display_initialize(Display* display, const DisplayConfig* config) {
     if (!display || !config)
         return false;
 
@@ -32,11 +33,15 @@ bool display_initialize(Display *display, const DisplayConfig *config) {
     *display = (Display){0};
     display->init_flags = init_flags;
 
-    if (!SDL_InitSubSystem(init_flags))
+    if (!SDL_InitSubSystem(init_flags)) {
+        SDL_Log("InitSubSystem failed: %s", SDL_GetError());
         return false;
-
-    if (!SDL_CreateWindowAndRenderer(title, width, height, window_flags, &display->window, &display->renderer))
+    }
+        
+    if (!SDL_CreateWindowAndRenderer(title, width, height, window_flags, &display->window, &display->renderer)) {
+        SDL_Log("CreateWindowAndRenderer failed: %s", SDL_GetError());
         goto failed;
+    }
 
     display->texture = SDL_CreateTexture(display->renderer, SDL_PIXELFORMAT_RGBA32,
                                          SDL_TEXTUREACCESS_STREAMING, GRID_WIDTH, GRID_HEIGHT);
@@ -44,17 +49,20 @@ bool display_initialize(Display *display, const DisplayConfig *config) {
     if (!display->texture)
         goto failed;
 
-    if (!SDL_SetTextureScaleMode(display->texture, SDL_SCALEMODE_NEAREST))
+    if (!SDL_SetTextureScaleMode(display->texture, SDL_SCALEMODE_NEAREST)) {
+        SDL_Log("SetTextureScaleMode failed: %s", SDL_GetError());
         goto failed;
+    }
 
-    if (!SDL_SetRenderLogicalPresentation(display->renderer, width, height, presentation))
+    if (!SDL_SetRenderLogicalPresentation(display->renderer, width, height, presentation)) {
+        SDL_Log("SetRenderLogicalPresentation failed: %s", SDL_GetError());
         goto failed;
+    }
 
     if (!SDL_SetRenderVSync(display->renderer, 1))
-        goto failed;
+        SDL_Log("SetRenderVSync failed: %s", SDL_GetError());
 
     return true;
-
 failed:
     display_destroy_resources(display);
     return false;
