@@ -22,20 +22,29 @@ add_executable(falling_sand
 
 # SDL3 libraries
 target_link_libraries(falling_sand PRIVATE ${SDL3_LIBRARIES})
+target_include_directories(falling_sand PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Tests
 enable_testing()
 
 add_executable(display_tests tests/test_display.c)
-target_include_directories(display_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/display)
+target_include_directories(display_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME display_tests COMMAND display_tests)
 
 add_executable(grid_tests tests/test_grid.c)
-target_include_directories(grid_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(grid_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(grid_tests PRIVATE ${SDL3_LIBRARIES})
 add_test(NAME grid_tests COMMAND grid_tests)
 
 add_executable(particle_tests tests/test_particle.c)
-target_include_directories(particle_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(particle_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(particle_tests PRIVATE ${SDL3_LIBRARIES})
 add_test(NAME particle_tests COMMAND particle_tests)
