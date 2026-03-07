@@ -4,19 +4,15 @@
 #include <SDL3/SDL.h>
 #include <stdbool.h>
 
-#include "../types.h"
-
-typedef struct grid Grid;
-typedef struct display Display;
 typedef enum particle_type {
     EMPTY, ROCK, SAND
 } ParticleType;
+
 typedef struct particle {
     ParticleType type;
     SDL_Color color;
+    Uint8 update_gen;
 } Particle;
-
-void particle_update_in_grid(Grid *grid, Coordinates coordinates);
 
 SDL_Color particle_get_default_color_by_type(ParticleType type);
 SDL_Color particle_get_random_color_by_type(ParticleType type);
